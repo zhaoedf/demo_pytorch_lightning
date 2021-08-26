@@ -22,8 +22,10 @@ class LitClassifier(pl.LightningModule):
 
     # --------------- training loop ---------------
     def training_step(self, batch, batch_idx):
-        x, y = batch
-        y_hat = self.model(x)
+        # x, y = batch
+        # y_hat = self.model(x)
+        x, y, t = batch
+        y_hat = self.model(x)['logits']
         loss = F.cross_entropy(y_hat, y)
 
         # logs metrics for each training_step,
@@ -60,8 +62,8 @@ class LitClassifier(pl.LightningModule):
         return acc
 
     def _shared_eval_step(self, batch, batch_idx):
-        x, y = batch
-        y_hat = self.model(x)
+        x, y, t = batch
+        y_hat = self.model(x)['logits']
         loss = F.cross_entropy(y_hat, y)
         acc = accuracy(y_hat, y)
         return loss, acc

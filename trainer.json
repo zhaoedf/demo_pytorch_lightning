@@ -1,7 +1,7 @@
 {
 	"accelerator": "ddp",
-	"gpus": "8,9",
-	"max_epochs": 100,
+	"gpus": "7,8",
+	"max_epochs": 2,
 	"progress_bar_refresh_rate": 20,
 	"check_val_every_n_epoch": 1,
 	"weights_summary": "full",

@@ -13,14 +13,23 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 
 from pytorch_lightning.loggers import MLFlowLogger
 
+from torchvision import transforms
+
+from continuum import ClassIncremental
+from continuum.tasks import split_train_val
+from continuum.datasets import MNIST, CIFAR10
+
+from incremental_data import CIFAR10IncrementalDataModule
+
+# changhong code
+from utils.inc_net import IncrementalNet
+inc_network = IncrementalNet("resnet32", False)
 
 # model
 learning_rate = 0.002
 model = NeuralNetwork()
-classifier = LitClassifier(model, learning_rate=learning_rate)
-
-# data
-dm = MNISTDataModule("/data/Public/Datasets")
+# classifier = LitClassifier(model, learning_rate=learning_rate)
+classifier = LitClassifier(inc_network, learning_rate=learning_rate)
 
 # callbacks
 print_table_metrics_callback = PrintTableMetricsCallback()
@@ -61,6 +70,7 @@ mlflow_logger = MLFlowLogger(experiment_name="test1", tracking_uri="http://local
 trainer = Trainer(
     accelerator=args.accelerator,
     gpus = args.gpus, # [0,1,7,8,9]  / -1
+    # gpus = "1",
     max_epochs=args.max_epochs,
     progress_bar_refresh_rate=args.progress_bar_refresh_rate,
     check_val_every_n_epoch = args.check_val_every_n_epoch,
@@ -78,7 +88,38 @@ trainer = Trainer(
 
 # train
 # https://pytorch-lightning.readthedocs.io/en/latest/common/trainer.html#fit
-trainer.fit(classifier,dm) # only lightningModule class can be used in function "fit"! so classifier is ok while model is not.
+# print(dir(dm))
+
+PATH_DATASETS = "/data/Public/Datasets"
+increment=2
+initial_increment=2
+transform = [
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307, ), (0.3081, )),
+        ]
+# TODO scenario 做成某个类返回的结果。类的init参数为increment相关设置。 类中可以根据不同的类返回不同的数据集。
+scenario = ClassIncremental(
+        CIFAR10(PATH_DATASETS, train=True),
+        increment=increment,
+        initial_increment=initial_increment,
+        transformations=transform
+        )
+
+nb_classes = initial_increment
+for task_id, taskset in enumerate(scenario):
+    # data
+    # TODO 这个dims, num_classes的信息通过上一个TODO的类提供。
+
+    classifier.model.update_fc(nb_classes)
+    dm = CIFAR10IncrementalDataModule(task_id, taskset, (1,28,28), 10)
+
+    trainer.fit(classifier,dm) # only lightningModule class can be used in function "fit"! so classifier is ok while model is not.
+
+    if trainer.is_global_zero:
+        print('*'*100)
+        print(f'nb_classes have been seen is: {nb_classes}')
+    nb_classes += increment
+
 
 # test [checked]
 # dm.setup('test')
