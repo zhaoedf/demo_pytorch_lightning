@@ -2,9 +2,11 @@ import pytorch_lightning as pl
 import torch.nn.functional as F
 import torch
 
-
 from pytorch_lightning import LightningModule
 from torchmetrics.functional import accuracy
+
+
+
 
 class LitClassifier(pl.LightningModule):
 
@@ -14,19 +16,13 @@ class LitClassifier(pl.LightningModule):
         self.model = model
         self.save_hyperparameters(ignore='model')
 
-        self.nb_seen_classes = 0
-        # # mlflow
-        # self.mlflow_client = self.logger.experiment
-        # self.exp_name = exp_name
-        # self.exp_id = client.get_experiment_by_name(self.exp_name).experiment_id
-        # self.run_id = client.list_run_infos(exp_id)[0].run_id
 
     # --------------- training loop ---------------
     def training_step(self, batch, batch_idx):
-        # x, y = batch
+        x, y = batch
         # y_hat = self.model(x)
-        x, y, t = batch
-        y_hat = self.model(x)['logits']
+        # x, y, t = batch
+        y_hat = self.model(x)
         loss = F.cross_entropy(y_hat, y)
 
         # logs metrics for each training_step,
@@ -67,10 +63,11 @@ class LitClassifier(pl.LightningModule):
         self.logger.log_metrics({'test_acc':test_acc.item()}, step=self.trainer.current_epoch)
 
     def _shared_eval_step(self, batch, batch_idx):
-        x, y, t = batch
-        y_hat = self.model(x)['logits']
+        # x, y, t = batch
+        x,y = batch
+        y_hat = self.model(x)
         loss = F.cross_entropy(y_hat, y)
-        acc = accuracy(y_hat, y)
+        acc = accuracy(y_hat, y) # TODO 2D support?
         return loss, acc
 
     # --------------- optimizers ---------------
@@ -78,18 +75,9 @@ class LitClassifier(pl.LightningModule):
         return torch.optim.Adam(self.model.parameters(), lr=self.hparams['learning_rate'])
 
     # --------------- not-neccessary ---------------
-    # In the case where you want to scale your inference, you should be using predict_step()
-    def predict_step(self, batch, batch_idx, dataloader_idx=None):
-        # demo
-        x, y = batch
-        return self.model(x)['logits']
-
-    def set_nb_seen_classes(self, new_nb_seen_classes):
-        self.nb_seen_classes = new_nb_seen_classes
-
     def get_progress_bar_dict(self):
         # don't show the version number
         items = super().get_progress_bar_dict()
         items.pop("v_num", None)
-        items["nb_seen_classes"] = self.nb_seen_classes
+        # items["nb_seen_classes"] = self.nb_seen_classes
         return items
