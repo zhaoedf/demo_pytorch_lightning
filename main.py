@@ -5,7 +5,7 @@ from data import MNISTDataModule
 
 from args_trainer import args
 
-from pytorch_lightning import Trainer
+from pytorch_lightning import Trainer, seed_everything
 
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pl_bolts.callbacks import PrintTableMetricsCallback
@@ -15,38 +15,46 @@ from pytorch_lightning.loggers import MLFlowLogger
 
 from torchvision import transforms
 
-from continuum import ClassIncremental
-from continuum.tasks import split_train_val
-from continuum.datasets import MNIST, CIFAR10
+# from continuum import ClassIncremental
+# from continuum.tasks import split_train_val
+# from continuum.datasets import MNIST, CIFAR10
 
-from incremental_data import CIFAR10IncrementalDataModule
+from incremental_data import IncrementalDataModule
+from incremental_scenario import incremental_scenario
 
 # changhong code
 from utils.inc_net import IncrementalNet
 inc_network = IncrementalNet("resnet32", False)
 
+
+seed_everything(42, workers=True)
+
 # model
 learning_rate = 0.002
-model = NeuralNetwork()
+# model = NeuralNetwork()
 # classifier = LitClassifier(model, learning_rate=learning_rate)
+# TODO
+# 封装，把网络生成写在Classifier里面，并且改个名字
 classifier = LitClassifier(inc_network, learning_rate=learning_rate)
 
 # callbacks
 print_table_metrics_callback = PrintTableMetricsCallback()
 
+monitor_metric = 'loss_epoch'
+mode = 'min'
 early_stop_callback = EarlyStopping(
-    monitor="val_acc",
+    monitor=monitor_metric,
     min_delta=0.00,
     patience=3,
     verbose=False,
-    mode="max",
+    mode=mode,
     strict = True)
 
 checkpoint_callback = ModelCheckpoint(
-    monitor='val_acc',
+    monitor=monitor_metric,
     filename='sample-mnist-{epoch:02d}-{val_acc:.2f}',
     save_top_k=3,
-    mode='max',
+    mode=mode,
     save_last=True
 )
 
@@ -78,7 +86,8 @@ trainer = Trainer(
     callbacks = [early_stop_callback, checkpoint_callback],
     log_every_n_steps = args.log_every_n_steps, # default: 50
     logger = mlflow_logger,
-    sync_batchnorm = args.sync_batchnorm
+    sync_batchnorm = args.sync_batchnorm,
+    fast_dev_run = args.fast_dev_run
 ) # precision=16 [checked]
 
 
@@ -93,34 +102,75 @@ trainer = Trainer(
 PATH_DATASETS = "/data/Public/Datasets"
 increment=2
 initial_increment=2
-transform = [
-            transforms.ToTensor(),
-            transforms.Normalize((0.1307, ), (0.3081, )),
-        ]
-# TODO scenario 做成某个类返回的结果。类的init参数为increment相关设置。 类中可以根据不同的类返回不同的数据集。
-scenario = ClassIncremental(
-        CIFAR10(PATH_DATASETS, train=True),
-        increment=increment,
-        initial_increment=initial_increment,
-        transformations=transform
-        )
+# transform = [
+#             transforms.ToTensor(),
+#             transforms.Normalize((0.1307, ), (0.3081, )),
+#         ]
 
-nb_classes = initial_increment
-for task_id, taskset in enumerate(scenario):
-    # data
-    # TODO 这个dims, num_classes的信息通过上一个TODO的类提供。
+# scenario = ClassIncremental(
+#         CIFAR10(PATH_DATASETS, train=True),
+#         increment=increment,
+#         initial_increment=initial_increment,
+#         transformations=transform
+#         )
 
-    classifier.model.update_fc(nb_classes)
-    dm = CIFAR10IncrementalDataModule(task_id, taskset, (1,28,28), 10)
+# TODO
+# 后续可以把incrementtal_scenario作为基类，然后每个数据集写成一个XX_incrementtal_scenario。
+# 这样可以更加独立和方便阅读
+inc_scenario = incremental_scenario(
+    dataset_name = 'CIFAR10',
+    train_additional_transforms = [],
+    test_additional_transforms = [],
+    initial_increment = initial_increment,
+    increment = increment
+)
+if trainer.is_global_zero:
+    pass
+inc_scenario.prepare_data()
+train_scenario, test_scenario = inc_scenario.get_incremental_scenarios()
+# print(inc_scenario.class_order)
 
-    trainer.fit(classifier,dm) # only lightningModule class can be used in function "fit"! so classifier is ok while model is not.
+nb_seen_classes = initial_increment
+val_split_ratio = 0.0
 
-    if trainer.is_global_zero:
-        print('*'*100)
-        print(f'nb_classes have been seen is: {nb_classes}')
-    nb_classes += increment
+try:
+    for task_id, taskset in enumerate(train_scenario):
 
+        classifier.model.update_fc(nb_seen_classes)
+        dm = IncrementalDataModule(
+            task_id = task_id, 
+            train_taskset = taskset, 
+            test_taskset = test_scenario[:task_id+1],
+            dims = inc_scenario.dims, 
+            nb_total_classes = inc_scenario.nb_total_classes,
+            batch_size = 64,
+            num_workers = 2,
+            val_split_ratio = val_split_ratio)
 
-# test [checked]
+        # trainer.fit(classifier, datamodule=dm) # only lightningModule class can be used in function "fit"! so classifier is ok while model is not.
+        # dm.setup('fit')
+        #trainer.fit(classifier, train_dataloaders = dm.train_dataloader())
+        trainer.fit(classifier, datamodule=dm)
+        dm.setup('test')
+        trainer.test(classifier, dataloaders=dm.test_dataloader())
+        # trainer.test(classifier, datamodule=dm)
+
+        if trainer.is_global_zero: # control that only one device can print.
+            print('*'*100)
+            print(f'nb_seen_classes have been seen is: {nb_seen_classes}')
+
+        classifier.set_nb_seen_classes(nb_seen_classes)
+        nb_seen_classes += increment
+
+        del dm
+except KeyboardInterrupt:
+        try:
+            sys.exit(0)
+        except SystemExit:
+            os._exit(0)
+
+# test [worked]
 # dm.setup('test')
 # trainer.test(classifier, dataloaders=dm.test_dataloader())
+# test [not worked]
+# trainer.test(classifier, datamodule=dm)

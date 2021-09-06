@@ -8,43 +8,58 @@ from pytorch_lightning import LightningDataModule
 
 from continuum import ClassIncremental
 from continuum.tasks import split_train_val
-from continuum.datasets import MNIST, CIFAR10
+
+
+from continuum.tasks.task_set import TaskSet
 
 BATCH_SIZE = 64
 PATH_DATASETS = "/data/Public/Datasets"
 
-class CIFAR10IncrementalDataModule(LightningDataModule):
+class IncrementalDataModule(LightningDataModule):
 
-    def __init__(self, task_id, taskset, dims, num_classes):
+    def __init__(self, 
+                 task_id:int, 
+                 train_taskset:TaskSet, 
+                 test_taskset:TaskSet,
+                 dims:tuple, 
+                 nb_total_classes:int,
+                 batch_size:int,
+                 num_workers:int,
+                 val_split_ratio:float):
         super().__init__()
         self.task_id = task_id
-        self.taskset = taskset
+        self.train_taskset = train_taskset
+        self.test_taskset = test_taskset
 
         self.dims = dims
-        self.num_classes = num_classes
+        self.nb_total_classes = nb_total_classes
+
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+        self.val_split_ratio = val_split_ratio
 
     def prepare_data(self): # 这步其实就是为了download，即检查数据集是否存在而已。
         pass
 
-    # def create_next_incremental_dataset(self):
-    #     for task_id, taskset in enumerate(self.scenario):
-    #         yield task_id, taskset
 
     def setup(self, stage=None):
         if stage == 'fit' or stage is None:
-            mnist_full = self.taskset
-            self.mnist_train, self.mnist_val = split_train_val(mnist_full, val_split=0.1)
+            full = self.train_taskset
+            self.train, self.val = split_train_val(full, val_split=self.val_split_ratio)
 
         # Assign test dataset for use in dataloader(s)
         if stage == 'test' or stage is None:
-            self.mnist_test = dat
+            self.test = self.test_taskset
 
 
     def train_dataloader(self):
-        return DataLoader(self.mnist_train, batch_size=BATCH_SIZE,num_workers=8)
+        return DataLoader(self.train, batch_size=self.batch_size,num_workers=self.num_workers)
 
     def val_dataloader(self):
-        return DataLoader(self.mnist_val, batch_size=BATCH_SIZE,num_workers=8)
+        if self.val_split_ratio == 0.0:
+            return None # return None will force trainer to disable Validation loop.
+        else:
+            return DataLoader(self.val, batch_size=self.batch_size,num_workers=self.num_workers)
 
     def test_dataloader(self):
-        return DataLoader(self.mnist_test, batch_size=BATCH_SIZE,num_workers=8)
+        return DataLoader(self.test, batch_size=self.batch_size,num_workers=self.num_workers)

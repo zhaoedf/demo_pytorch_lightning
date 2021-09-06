@@ -14,6 +14,7 @@ class LitClassifier(pl.LightningModule):
         self.model = model
         self.save_hyperparameters(ignore='model')
 
+        self.nb_seen_classes = 0
         # # mlflow
         # self.mlflow_client = self.logger.experiment
         # self.exp_name = exp_name
@@ -45,7 +46,7 @@ class LitClassifier(pl.LightningModule):
         # self.log_dict(metrics,  on_epoch=True, prog_bar=True, logger=True)
         # return metrics
         # self.log("val_acc", acc, on_step=False, on_epoch=True, logger=True)
-        self.log("val_acc", acc, on_step = False, on_epoch=True, prog_bar=True, logger=False, sync_dist=True)
+        self.log("val_acc", acc, on_step = False, on_epoch=True, prog_bar=True, logger=False, rank_zero_only=True)
         return metrics
 
     def on_validation_end(self):
@@ -58,8 +59,12 @@ class LitClassifier(pl.LightningModule):
         # metrics = {"test_acc": acc, "test_loss": loss}
         # self.log_dict(metrics)
         # return metrics
-        self.log("test_acc", acc, on_step=False, on_epoch=True, logger=True, sync_dist=True)
+        self.log("test_acc", acc, on_step=False, on_epoch=True, logger=True, rank_zero_only=True)
         return acc
+
+    def on_test_end(self):
+        test_acc = self.trainer.callback_metrics['test_acc']
+        self.logger.log_metrics({'test_acc':test_acc.item()}, step=self.trainer.current_epoch)
 
     def _shared_eval_step(self, batch, batch_idx):
         x, y, t = batch
@@ -77,6 +82,14 @@ class LitClassifier(pl.LightningModule):
     def predict_step(self, batch, batch_idx, dataloader_idx=None):
         # demo
         x, y = batch
-        return self.model(x)
+        return self.model(x)['logits']
 
+    def set_nb_seen_classes(self, new_nb_seen_classes):
+        self.nb_seen_classes = new_nb_seen_classes
 
+    def get_progress_bar_dict(self):
+        # don't show the version number
+        items = super().get_progress_bar_dict()
+        items.pop("v_num", None)
+        items["nb_seen_classes"] = self.nb_seen_classes
+        return items

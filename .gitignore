@@ -7,3 +7,6 @@ lightning_logs/
 
 # pycache
 __pycache__/
+
+# jupyter
+.ipynb_checkpoints
