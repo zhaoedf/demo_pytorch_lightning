@@ -1,0 +1,13 @@
+
+{
+	"batch_size": 4,
+	"learning_rate": 1e-3,
+    "dataset_path": "/data/defeng/backup6-tranfer-UNet/data/",
+    "val_split_ratio": 0.9,
+    "loss_function": "BCE",
+    "num_workers": 8,
+    "bilinear": true,
+    "in_channel": 3,
+    "nb_classes":1,
+    "scale": 1.0
+}

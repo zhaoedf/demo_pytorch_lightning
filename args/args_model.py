@@ -1,16 +1,18 @@
 
 
+
+
 import argparse
-from pytorch_lightning import Trainer
 import json
+import os
 
 
 parser = argparse.ArgumentParser()
-parser = Trainer.add_argparse_args(parser)
-
 args_temp = parser.parse_args()
 
-with open('./trainer.json') as f:
+this_file_abs_path = os.path.abspath(__file__)
+package_path = '/'.join(this_file_abs_path.split('/')[:-1])
+with open(os.path.join(package_path, 'model.json')) as f:
     trainer_params = json.load(f)
 
 args_dict = vars(args_temp)
@@ -22,7 +24,6 @@ for k,v in trainer_params.items():
 
 #print("*"*100)
 
-args = argparse.Namespace(**args_dict)
+args_model = argparse.Namespace(**args_dict)
 
 #print(args)
-

@@ -1,29 +1,32 @@
 import pytorch_lightning as pl
 import torch.nn.functional as F
 import torch
+import torch.nn as nn 
 
 from pytorch_lightning import LightningModule
 from torchmetrics.functional import accuracy
 
+from utils import dice_coeff
 
 
-
-class LitClassifier(pl.LightningModule):
+class SegLearner(pl.LightningModule):
 
     # --------------- computations ---------------
     def __init__(self, model, learning_rate):
         super().__init__()
         self.model = model
         self.save_hyperparameters(ignore='model')
+        
+        self.loss_func = nn.BCEWithLogitsLoss()
+        self.dice_coeff = dice_coeff
 
 
     # --------------- training loop ---------------
     def training_step(self, batch, batch_idx):
-        x, y = batch
-        # y_hat = self.model(x)
-        # x, y, t = batch
+        x, y = batch['image'], batch['mask']
+
         y_hat = self.model(x)
-        loss = F.cross_entropy(y_hat, y)
+        loss = self.loss_func(y_hat, y)
 
         # logs metrics for each training_step,
         # and the average across the epoch, to the progress bar and logger
@@ -37,38 +40,37 @@ class LitClassifier(pl.LightningModule):
 
     # --------------- validation loop ---------------
     def validation_step(self, batch, batch_idx):
-        loss, acc = self._shared_eval_step(batch, batch_idx)
-        metrics = {"val_acc": acc} # , "val_loss": loss
-        # self.log_dict(metrics,  on_epoch=True, prog_bar=True, logger=True)
-        # return metrics
-        # self.log("val_acc", acc, on_step=False, on_epoch=True, logger=True)
-        self.log("val_acc", acc, on_step = False, on_epoch=True, prog_bar=True, logger=False, rank_zero_only=True)
+        loss, miou = self._shared_eval_step(batch, batch_idx)
+        metrics = {"val_miou": miou} # , "val_loss": loss
+
+        self.log("val_miou", miou, on_step = False, on_epoch=True, prog_bar=True, logger=False, rank_zero_only=True)
         return metrics
 
     def on_validation_end(self):
-        val_acc = self.trainer.callback_metrics['val_acc']
-        self.logger.log_metrics({'val_acc':val_acc.item()}, step=self.trainer.current_epoch)
+        val_miou = self.trainer.callback_metrics['val_miou']
+        self.logger.log_metrics({'val_miou':val_miou.item()}, step=self.trainer.current_epoch)
 
     # --------------- test loop ---------------
     def test_step(self, batch, batch_idx):
-        loss, acc = self._shared_eval_step(batch, batch_idx)
-        # metrics = {"test_acc": acc, "test_loss": loss}
-        # self.log_dict(metrics)
-        # return metrics
-        self.log("test_acc", acc, on_step=False, on_epoch=True, logger=True, rank_zero_only=True)
-        return acc
+        loss, miou = self._shared_eval_step(batch, batch_idx)
+        metrics = {"test_miou": miou}
+
+        self.log("test_miou", miou, on_step=False, on_epoch=True, logger=True, rank_zero_only=True)
+        return metrics
 
     def on_test_end(self):
-        test_acc = self.trainer.callback_metrics['test_acc']
-        self.logger.log_metrics({'test_acc':test_acc.item()}, step=self.trainer.current_epoch)
+        test_miou = self.trainer.callback_metrics['test_miou']
+        self.logger.log_metrics({'test_miou':test_miou.item()}, step=self.trainer.current_epoch)
 
     def _shared_eval_step(self, batch, batch_idx):
-        # x, y, t = batch
-        x,y = batch
+        x, y = batch['image'], batch['mask']
+        
         y_hat = self.model(x)
-        loss = F.cross_entropy(y_hat, y)
-        acc = accuracy(y_hat, y) # TODO 2D support?
-        return loss, acc
+        loss = self.loss_func(y_hat, y)
+        # miou = self.dice_coeff(y, y_hat)
+        miou = -loss
+        # acc = accuracy(y_hat, y)
+        return loss, miou
 
     # --------------- optimizers ---------------
     def configure_optimizers(self):
