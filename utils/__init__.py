@@ -1,4 +1,4 @@
 
 
 
-from .dice_coeff import dice_coeff, DiceCoeff
+from .dice_coeff import Dice_coeff

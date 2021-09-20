@@ -6,9 +6,9 @@ import torch.nn as nn
 from pytorch_lightning import LightningModule
 from torchmetrics.functional import accuracy
 
-from utils import dice_coeff
+from utils import Dice_coeff
 
-
+# TODO check self.log epoch/step
 class SegLearner(pl.LightningModule):
 
     # --------------- computations ---------------
@@ -18,15 +18,20 @@ class SegLearner(pl.LightningModule):
         self.save_hyperparameters(ignore='model')
         
         self.loss_func = nn.BCEWithLogitsLoss()
-        self.dice_coeff = dice_coeff
+        self.dice_coeff = Dice_coeff()
 
 
     # --------------- training loop ---------------
     def training_step(self, batch, batch_idx):
         x, y = batch['image'], batch['mask']
 
-        y_hat = self.model(x)
-        loss = self.loss_func(y_hat, y)
+        logits = self.model(x)  # probs = sigmoid(logits)
+        y_hat = torch.sigmoid(logits)
+        
+        if isinstance(self.loss_func, nn.BCEWithLogitsLoss):
+            loss = self.loss_func(logits, y)
+        else:
+            loss = self.loss_func(y_hat, y)
 
         # logs metrics for each training_step,
         # and the average across the epoch, to the progress bar and logger
@@ -40,37 +45,42 @@ class SegLearner(pl.LightningModule):
 
     # --------------- validation loop ---------------
     def validation_step(self, batch, batch_idx):
-        loss, miou = self._shared_eval_step(batch, batch_idx)
-        metrics = {"val_miou": miou} # , "val_loss": loss
+        loss, dice = self._shared_eval_step(batch, batch_idx)
+        metrics = {"val_dice": dice} # , "val_loss": loss
 
-        self.log("val_miou", miou, on_step = False, on_epoch=True, prog_bar=True, logger=False, rank_zero_only=True)
+        self.log("val_dice", dice, on_step = False, on_epoch=True, prog_bar=True, logger=False, rank_zero_only=True)
         return metrics
 
     def on_validation_end(self):
-        val_miou = self.trainer.callback_metrics['val_miou']
-        self.logger.log_metrics({'val_miou':val_miou.item()}, step=self.trainer.current_epoch)
+        val_dice = self.trainer.callback_metrics['val_dice']
+        self.logger.log_metrics({'val_dice':val_dice.item()}, step=self.trainer.current_epoch)
 
     # --------------- test loop ---------------
     def test_step(self, batch, batch_idx):
-        loss, miou = self._shared_eval_step(batch, batch_idx)
-        metrics = {"test_miou": miou}
+        loss, dice = self._shared_eval_step(batch, batch_idx)
+        metrics = {"test_dice": dice}
 
-        self.log("test_miou", miou, on_step=False, on_epoch=True, logger=True, rank_zero_only=True)
+        self.log("test_dice", dice, on_step=False, on_epoch=True, logger=True, rank_zero_only=True)
         return metrics
 
     def on_test_end(self):
-        test_miou = self.trainer.callback_metrics['test_miou']
-        self.logger.log_metrics({'test_miou':test_miou.item()}, step=self.trainer.current_epoch)
+        test_dice = self.trainer.callback_metrics['test_dice']
+        self.logger.log_metrics({'test_dice':test_dice.item()}, step=self.trainer.current_epoch)
 
     def _shared_eval_step(self, batch, batch_idx):
         x, y = batch['image'], batch['mask']
+
+        logits = self.model(x)  # probs = sigmoid(logits)
+        y_hat = torch.sigmoid(logits)
         
-        y_hat = self.model(x)
-        loss = self.loss_func(y_hat, y)
-        # miou = self.dice_coeff(y, y_hat)
-        miou = -loss
+        if isinstance(self.loss_func, nn.BCEWithLogitsLoss):
+            loss = self.loss_func(logits, y)
+        else:
+            loss = self.loss_func(y_hat, y)
+            
+        dice = self.dice_coeff(y_hat, y)
         # acc = accuracy(y_hat, y)
-        return loss, miou
+        return loss, dice
 
     # --------------- optimizers ---------------
     def configure_optimizers(self):

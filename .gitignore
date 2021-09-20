@@ -5,7 +5,7 @@ lightning_logs/
 1/
 
 
-# pycache
+# pycache [worked]
 __pycache__/
 args/__pycache__/
 models/__pycache__/

@@ -100,10 +100,14 @@ learner = SegLearner(
 # trainer
 # ***************************************************************************
 
+# logger
+mlflow_logger = MLFlowLogger(experiment_name="test1", tracking_uri="http://localhost:10500")
+run_id = mlflow_logger.run_id
+
 # callbacks
 print_table_metrics_callback = PrintTableMetricsCallback()
 
-monitor_metric = 'val_miou'
+monitor_metric = 'val_dice'
 mode = 'max'
 early_stop_callback = EarlyStopping(
     monitor=monitor_metric,
@@ -114,14 +118,15 @@ early_stop_callback = EarlyStopping(
     strict = True)
 
 checkpoint_callback = ModelCheckpoint(
+    dirpath=f'saved_models/{run_id}/',
     monitor=monitor_metric,
-    filename='saved_models/{epoch:02d}-{val_acc:.2f}',
+    filename='{epoch:02d}-{val_dice:.2f}',
     save_top_k=2,
     mode=mode,
     save_last=False
 )
 
-mlflow_logger = MLFlowLogger(experiment_name="test1", tracking_uri="http://localhost:10500")
+
 
 trainer = Trainer(
     accelerator=args_trainer.accelerator,
@@ -137,6 +142,7 @@ trainer = Trainer(
     sync_batchnorm = args_trainer.sync_batchnorm,
     fast_dev_run = args_trainer.fast_dev_run
 ) # precision=16 [checked]
+
 
 
 # ***************************************************************************
