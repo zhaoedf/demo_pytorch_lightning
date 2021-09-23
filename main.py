@@ -152,8 +152,8 @@ trainer = Trainer(
 try:
     trainer.fit(learner, datamodule=dm)
     # test code [checked]
-    # dm.setup('test')
-    # trainer.test(classifier, dataloaders=dm.test_dataloader())
+    dm.setup('test')
+    trainer.test(learner, dataloaders=dm.test_dataloader())
 
     
 except KeyboardInterrupt:

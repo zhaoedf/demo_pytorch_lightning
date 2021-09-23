@@ -41,14 +41,15 @@ class SegLearner(pl.LightningModule):
 
     def on_train_epoch_end(self):
         loss_epoch = self.trainer.callback_metrics['loss_epoch']
-        self.logger.log_metrics({'loss_epoch':loss_epoch.item()}, step=self.trainer.current_epoch)
+        self.logger.log_metrics({'loss_epoch':loss_epoch.item()}, step=self.trainer.current_epoch) # for diplay x-axis as epoch in mlflow.
 
     # --------------- validation loop ---------------
     def validation_step(self, batch, batch_idx):
         loss, dice = self._shared_eval_step(batch, batch_idx)
         metrics = {"val_dice": dice} # , "val_loss": loss
 
-        self.log("val_dice", dice, on_step = False, on_epoch=True, prog_bar=True, logger=False, rank_zero_only=True)
+        # self.log("val_dice", dice, on_step = False, on_epoch=True, prog_bar=True, logger=False, rank_zero_only=True)
+        self.log("val_dice", dice, on_step = False, on_epoch=True, prog_bar=True, logger=False, sync_dist=True)
         return metrics
 
     def on_validation_end(self):
@@ -60,7 +61,7 @@ class SegLearner(pl.LightningModule):
         loss, dice = self._shared_eval_step(batch, batch_idx)
         metrics = {"test_dice": dice}
 
-        self.log("test_dice", dice, on_step=False, on_epoch=True, logger=True, rank_zero_only=True)
+        self.log("test_dice", dice, on_step=False, on_epoch=True, logger=True, sync_dist=True)
         return metrics
 
     def on_test_end(self):
