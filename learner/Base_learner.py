@@ -6,7 +6,7 @@ import torch
 from pytorch_lightning import LightningModule
 from torchmetrics.functional import accuracy
 
-class LitClassifier(pl.LightningModule):
+class Base_learner(pl.LightningModule):
 
     # --------------- computations ---------------
     def __init__(self, model, learning_rate):
@@ -15,11 +15,6 @@ class LitClassifier(pl.LightningModule):
         self.save_hyperparameters(ignore='model')
 
         self.nb_seen_classes = 0
-        # # mlflow
-        # self.mlflow_client = self.logger.experiment
-        # self.exp_name = exp_name
-        # self.exp_id = client.get_experiment_by_name(self.exp_name).experiment_id
-        # self.run_id = client.list_run_infos(exp_id)[0].run_id
 
     # --------------- training loop ---------------
     def training_step(self, batch, batch_idx):
@@ -93,3 +88,5 @@ class LitClassifier(pl.LightningModule):
         items.pop("v_num", None)
         items["nb_seen_classes"] = self.nb_seen_classes
         return items
+
+

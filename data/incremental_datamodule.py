@@ -53,13 +53,13 @@ class IncrementalDataModule(LightningDataModule):
 
 
     def train_dataloader(self):
-        return DataLoader(self.train, batch_size=self.batch_size,num_workers=self.num_workers)
+        return DataLoader(self.train, batch_size=self.batch_size, num_workers=self.num_workers)
 
     def val_dataloader(self):
         if self.val_split_ratio == 0.0:
             return None # return None will force trainer to disable Validation loop.
         else:
-            return DataLoader(self.val, batch_size=self.batch_size,num_workers=self.num_workers)
+            return DataLoader(self.val, batch_size=self.batch_size, num_workers=self.num_workers)
 
     def test_dataloader(self):
-        return DataLoader(self.test, batch_size=self.batch_size,num_workers=self.num_workers)
+        return DataLoader(self.test, batch_size=self.batch_size, num_workers=self.num_workers)
