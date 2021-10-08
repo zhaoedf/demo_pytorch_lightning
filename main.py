@@ -3,7 +3,7 @@
 # ***************************************************************************
 # import packages
 # ***************************************************************************
-
+import sys
 import os
 # import torch
 
@@ -27,16 +27,18 @@ seed_everything(42, workers=True)
 # ***************************************************************************
 
 # --- data ---
-from data import SegDataset, SegDataModule
+from dataset import Caltech256
+from data import ClsDataset, ClsDataModule
 
 # --- model ---
-from model import UNet
+import torchvision
+model = torchvision.models.resnet18(pretrained=True)
 
 # --- args ---
 from args import args_trainer, args_model
 
 # --- learner ---
-from learner import SegLearner
+from learner import ClsLearner
 
 
 # ***************************************************************************
@@ -59,20 +61,16 @@ val_split_ratio = args_model.val_split_ratio
 # dataset and datamodule
 # ***************************************************************************
 
-train_dataset = SegDataset(
-    imgs_dir=os.path.join(dataset_path, 'imgs'), 
-    masks_dir=os.path.join(dataset_path, 'masks'), 
-    scale=scale,
-    mask_suffix='_mask'
+train_dataset = Caltech256(
+    dataroot='/data/Public/Datasets/Caltech-256',
+    train=True
 )
-test_dataset = SegDataset(
-    imgs_dir=os.path.join(dataset_path, 'test_imgs'), 
-    masks_dir=os.path.join(dataset_path, 'test_masks'), 
-    scale=scale,
-    mask_suffix='_mask'
+test_dataset = Caltech256(
+    dataroot='/data/Public/Datasets/Caltech-256',
+    train=False
 )
 
-dm = SegDataModule(
+dm = ClsDataModule(
     train_dataset, test_dataset,
     batch_size=batch_size,
     num_workers=num_workers,
@@ -84,13 +82,8 @@ dm = SegDataModule(
 # model and learner
 # ***************************************************************************
 
-model = UNet(
-    n_channels=in_channel,
-    n_classes=nb_classes,
-    bilinear=bilinear
-)
 
-learner = SegLearner(
+learner = ClsLearner(
     model=model,
     learning_rate=learning_rate
 )
@@ -101,13 +94,13 @@ learner = SegLearner(
 # ***************************************************************************
 
 # logger
-mlflow_logger = MLFlowLogger(experiment_name="test1", tracking_uri="http://localhost:10500")
+mlflow_logger = MLFlowLogger(experiment_name="caltech", tracking_uri="http://localhost:10500")
 run_id = mlflow_logger.run_id
 
 # callbacks
 print_table_metrics_callback = PrintTableMetricsCallback()
 
-monitor_metric = 'val_dice'
+monitor_metric = 'val_acc'
 mode = 'max'
 early_stop_callback = EarlyStopping(
     monitor=monitor_metric,

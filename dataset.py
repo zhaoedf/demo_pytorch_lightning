@@ -1,19 +1,3 @@
-
-import numpy as np
-import torch
-import logging
-import os
-
-from os.path import splitext
-from os import listdir
-
-from glob import glob
-
-from PIL import Image
-
-from torch.utils.data import Dataset, random_split
-
-
 import glob
 import os
 
@@ -22,7 +6,7 @@ from PIL import Image
 from torch.utils.data import Dataset
 
 
-class ClsDataset(Dataset):
+class Caltech256(Dataset):
     """Dataset Caltech 256
     Class number: 257
     Train data number: 24582
@@ -76,60 +60,3 @@ class ClsDataset(Dataset):
 \tClass num: {}
 \tData num: {}""".format(self.class_num, self.__len__())
         return repr
-
-
-
-from torchvision.transforms import ToTensor, Lambda, Compose
-from torch.utils.data import DataLoader, random_split
-from torchvision import transforms
-
-from pytorch_lightning import LightningDataModule
-
-
-BATCH_SIZE = 32
-
-class ClsDataModule(LightningDataModule):
-
-    def __init__(self, 
-                 train_dataset, 
-                 test_dataset,
-                 batch_size:int,
-                 num_workers:int,
-                 val_split_ratio:float):
-        super().__init__()
-        self.train_dataset = train_dataset
-        self.test_dataset = test_dataset
-
-        self.batch_size = batch_size
-        self.num_workers = num_workers
-        self.val_split_ratio = val_split_ratio
-
-    def prepare_data(self): # 这步其实就是为了download，即检查数据集是否存在而已。
-        pass
-
-
-    def setup(self, stage=None):
-        if stage == 'fit' or stage is None:
-            full = self.train_dataset
-            
-            n_train = int(len(full)*self.val_split_ratio)
-            n_val = len(full) - n_train
-            
-            self.train, self.val = train, val = random_split(full, [n_train, n_val])
-
-        # Assign test dataset for use in dataloader(s)
-        if stage == 'test' or stage is None:
-            self.test = self.test_dataset
-
-
-    def train_dataloader(self):
-        return DataLoader(self.train, batch_size=self.batch_size,num_workers=self.num_workers)
-
-    def val_dataloader(self):
-        if self.val_split_ratio == 0.0:
-            return None # return None will force trainer to disable Validation loop.
-        else:
-            return DataLoader(self.val, batch_size=self.batch_size,num_workers=self.num_workers)
-
-    def test_dataloader(self):
-        return DataLoader(self.test, batch_size=self.batch_size,num_workers=self.num_workers)
