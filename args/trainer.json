@@ -1,12 +1,13 @@
 
 {
 	"accelerator": "ddp",
-	"gpus": "4",
-	"max_epochs": 10,
+	"gpus": "6,7",
+	"max_epochs": 70,
 	"progress_bar_refresh_rate": 20,
-	"check_val_every_n_epoch": 1,
+	"check_val_every_n_epoch": 70,
 	"weights_summary": "full",
 	"log_every_n_steps": 20,
 	"sync_batchnorm": true,
-	"fast_dev_run": false
+	"fast_dev_run": false,
+	"num_sanity_val_steps": 2
 }

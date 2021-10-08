@@ -30,5 +30,7 @@ for k,v in trainer_params.items():
 
 args_trainer = argparse.Namespace(**args_dict)
 
+assert args_trainer.check_val_every_n_epoch == args_trainer.max_epochs
+
 #print(args)
 

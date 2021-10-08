@@ -29,17 +29,33 @@ class incremental_scenario(object):
         self.increment = increment
 
         # download datasets and prepare transforms.
-        # self.prepare_data()
+        self.prepare_data()
+        self.setup()
         
     def prepare_data(self):
         if self.dataset_name == "MNIST":
-            self.train_dataset = MNIST(self.datasets_dir, download=False, train=True) # default: train=True
-            self.test_dataset = MNIST(self.datasets_dir, download=False, train=False)
+            self.train_dataset = MNIST(self.datasets_dir, download=True, train=True)
+            self.test_dataset = MNIST(self.datasets_dir, download=True, train=False)
+
+        if self.dataset_name == "CIFAR10":
+            self.train_dataset = CIFAR10(self.datasets_dir, download=True, train=True)
+            self.test_dataset = CIFAR10(self.datasets_dir, download=True, train=False)
+
+        if self.dataset_name == "CIFAR100":
+            self.train_dataset = CIFAR100(self.datasets_dir, download=True, train=True)
+            self.test_dataset = CIFAR100(self.datasets_dir, download=True, train=False)
+
+        if self.dataset_name == "ImageNet100":
+            self.train_dataset = ImageNet100(self.datasets_dir, download=True, train=True)
+            self.test_dataset = ImageNet100(self.datasets_dir, download=True, train=False)
+
+        if self.dataset_name == "ImageNet1000": # i.e. ILSVRC2012
+            self.train_dataset = ImageNet1000(self.datasets_dir, download=True, train=True)
+            self.test_dataset = ImageNet1000(self.datasets_dir, download=True, train=False)
         
-    # TODO
+   
     def setup(self): # called in every process
         if self.dataset_name == "MNIST":
-            # TODO distributed sys
             self.train_dataset = MNIST(self.datasets_dir, download=False, train=True) # default: train=True
             self.test_dataset = MNIST(self.datasets_dir, download=False, train=False)
             self.train_default_transforms = []
@@ -53,7 +69,7 @@ class incremental_scenario(object):
 
         if self.dataset_name == "CIFAR10":
             self.train_dataset = CIFAR10(self.datasets_dir, download=False, train=True)
-            print('$'*100, len(self.train_dataset.dataset))
+            # print('$'*100, len(self.train_dataset.dataset))
             self.test_dataset = CIFAR10(self.datasets_dir, download=False, train=False)
             self.train_default_transforms = [
                 transforms.RandomCrop(32, padding=4),
@@ -84,10 +100,10 @@ class incremental_scenario(object):
             self.nb_total_classes = 100
             self.dims = (3,32,32)
 
-        if self.dataset_name == "ImageNet100": # TODO complete all default transforms.
+        if self.dataset_name == "ImageNet100": # TODO @complete all default transforms.
             self.train_dataset = ImageNet100(self.datasets_dir, download=False, train=True)
             self.test_dataset = ImageNet100(self.datasets_dir, download=False, train=False)
-            # TODO temporarily use ImageNet1k's transforms
+            # TODO @temporarily use ImageNet1k's transforms
             self.train_default_transforms = [
                 transforms.RandomResizedCrop(224),
                 transforms.RandomHorizontalFlip(),

@@ -45,7 +45,7 @@ class IncrementalDataModule(LightningDataModule):
     def setup(self, stage=None):
         if stage == 'fit' or stage is None:
             full = self.train_taskset
-            self.train, self.val = split_train_val(full, val_split=self.val_split_ratio)
+            self.train, self.val = split_train_val(full, val_split=self.val_split_ratio) # train:total*(1-val_split_ratio)
 
         # Assign test dataset for use in dataloader(s)
         if stage == 'test' or stage is None:
@@ -57,9 +57,10 @@ class IncrementalDataModule(LightningDataModule):
 
     def val_dataloader(self):
         if self.val_split_ratio == 0.0:
-            return None # return None will force trainer to disable Validation loop.
-        else:
-            return DataLoader(self.val, batch_size=self.batch_size, num_workers=self.num_workers)
+            # return None # return None will force trainer to disable Validation loop.
+            self.val = self.test_taskset
+
+        return DataLoader(self.val, batch_size=self.batch_size, num_workers=self.num_workers)
 
     def test_dataloader(self):
         return DataLoader(self.test, batch_size=self.batch_size, num_workers=self.num_workers)
