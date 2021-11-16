@@ -1,0 +1,4 @@
+# demo_pytorch_lightning
+
+这个repo中的三个branch分到了三个新的repo：classification_pl, segmentation_pl 和 incremental_learning_pl
+这个demo_pytorch_lightning还会更新，不过只会随着这三个repo的更新而更新，看他们push.sh易懂。
